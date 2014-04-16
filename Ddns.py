@@ -29,7 +29,15 @@ def initlog(logfile):
     logger.setLevel(logging.NOTSET)
     return logger
 
-mlog = initlog('./msg.txt')
+mlog = initlog('./trans.log')
+DDNSAPI_VERSION = "0.1.1"
+class DnspodApiError(Exception):
+    """2014/4/16新增错误类，用于对外显示错误信息
+    """
+    def __init__(self, errCode, errMsg):
+        Exception.__init__(self)
+        self.errCode = int(errCode)
+        self.errMsg  = errMsg
 
 class DnspodApi():
     def __init__(self, Duser, Dpwd, Dformat = 'json', Dlang = 'cn', Derror_on_empty = 'no', Duser_id = None):
@@ -51,8 +59,8 @@ class DnspodApi():
     def PostData( self ,pamData ):
         u"""将 方法,基础URL,参数合并成 URL请求,并向服务器发送获取结果然后返回
         """
-        #UserAgent 
-        UserAgent = "DNSPOD PYTHON2 DDNS API/0.1.0(yifei0727@gmail.com)"
+        #UserAgent  #节点标识版本更新为全局控制，开发者邮箱(定值)更改为 用户邮箱动态值
+        UserAgent = "DNSPOD PYTHON2 FOR DDNS API/(%s)(%s)" %(DDNSAPI_VERSION, self.Duser)
         AuthPam = self.authPam()
         URL = pamData[0] 
         urlData = AuthPam + '&'+ pamData[1]
@@ -63,6 +71,7 @@ class DnspodApi():
             reader= urllib2.urlopen(request)
         except Exception as e:
             mlog.error(e)
+            return ""
         msg = reader.read()
         mlog.info(msg)
         return msg        
@@ -78,25 +87,14 @@ class DnspodApi():
         pam = [('domain', DomainName)]
         pam = urlencode(pam)
         retJson = self.PostData( (URL, pam ))
+        if retJson == "":
+            raise DnspodApiError(-1000, u"与服务器通讯通讯失败，未获取到数据")
         statusCode = json.loads(retJson,  encoding='utf-8').get('status').get('code')
         if int(statusCode) == 1:
             return json.loads(retJson,  encoding='utf-8').get('domain').get('id')
-        mlog.error("[__GetDomianID:]API返回错误,错误码：%d,错误说明:%s" % (int(statusCode),  errorInfo()))
-        return None
-    def __GetRecordIP(self, DomainID, subDomain):
-        u"""http://www.dnspod.cn/docs/records.html#id3"""
-        URL = "https://dnsapi.cn/Record.List"
-        if DomainID == None:
-            mlog.warn(u"参数Domain 是None 类型")
-            return None
-        pam = [('domain_id', DomainID), ('sub_domain', subDomain)]
-        pam =  urlencode(pam)
-        retJson = self.PostData( (URL, pam) )
-        statusCode = json.loads(retJson,  encoding='utf-8').get('status').get('code')
-        if int(statusCode) == 1:
-            return json.loads(retJson,  encoding='utf-8').get('records')[0].get('value')
-        mlog.error(u"[__GetRecordIP:]API返回错误,错误码：%d,错误说明:%s" % (int(statusCode),  errorInfo()))
-        return None        
+        errCode, errMsg = int(statusCode), self.getErrorMsg( retJson )
+        mlog.error(u"[__GetRecordIP:]API返回错误,错误码:%d,错误说明:%s" % (errCode, errMsg) )
+        raise DnspodApiError(errCode, errMsg)
     def __GetRecordID(self, DomainID, subDomain):
         u"""http://www.dnspod.cn/docs/records.html#id3"""
         URL = "https://dnsapi.cn/Record.List"
@@ -109,8 +107,25 @@ class DnspodApi():
         statusCode = json.loads(retJson,  encoding='utf-8').get('status').get('code')
         if int(statusCode) == 1:
             return json.loads(retJson,  encoding='utf-8').get('records')[0].get('id')
-        mlog.error(u"[__GetRecordID:]API返回错误,错误码：%d,错误说明:%s" % (int(statusCode),  errorInfo()))
-        return None
+        errCode, errMsg = int(statusCode), self.getErrorMsg( retJson )
+        mlog.error(u"[__GetRecordIP:]API返回错误,错误码:%d,错误说明:%s" % (errCode, errMsg) )
+        raise DnspodApiError(errCode, errMsg)
+    def __GetRecordIP(self, DomainID, subDomain):
+        u"""http://www.dnspod.cn/docs/records.html#id3"""
+        URL = "https://dnsapi.cn/Record.List"
+        if DomainID == None:
+            mlog.warn(u"参数Domain 是None 类型")
+            return None
+        pam = [('domain_id', DomainID), ('sub_domain', subDomain)]
+        pam =  urlencode(pam)
+        retJson = self.PostData( (URL, pam) )
+        statusCode = json.loads(retJson,  encoding='utf-8').get('status').get('code')
+        if int(statusCode) == 1:
+            return json.loads(retJson,  encoding='utf-8').get('records')[0].get('value')
+        errCode, errMsg = int(statusCode), self.getErrorMsg( retJson )
+        mlog.error(u"[__GetRecordIP:]API返回错误,错误码:%d,错误说明:%s" % (errCode, errMsg) )
+        raise DnspodApiError(errCode, errMsg)     
+
     def AddNewDomain(self):
         u"""参见http://www.dnspod.cn/docs/domains.html#id2"""
         URL = "https://dnsapi.cn/Domain.Create"
@@ -136,8 +151,9 @@ class DnspodApi():
         statusCode = json.loads(retJson, encoding='utf-8').get('status').get('code')
         if int(statusCode) == 1:
             return "OK"
-        mlog.error(u"[DdnsRecord:]API返回错误,错误码：%d,错误说明:%s" % (int(statusCode),  self.errorInfo(statusCode)))
-        return "Error"
+        errCode, errMsg = int(statusCode), self.getErrorMsg( retJson )
+        mlog.error(u"[__GetRecordIP:]API返回错误,错误码:%d,错误说明:%s" % (errCode, errMsg) )
+        raise DnspodApiError(errCode, errMsg)
 
     def DdnsRecord( self, value_IP, domain, sub_domain, record_line = u"默认".encode('utf-8')):
         URL = "https://dnsapi.cn/Record.Ddns"
@@ -152,8 +168,9 @@ class DnspodApi():
         statusCode = json.loads(retJson, encoding='utf-8').get('status').get('code')
         if int(statusCode) == 1:
             return "OK"
-        mlog.error(u"[DdnsRecord:]API返回错误,错误码：%d,错误说明:%s" % (int(statusCode),  self.errorInfo(statusCode)))
-        return "Error"
+        errCode, errMsg = int(statusCode), self.getErrorMsg( retJson )
+        mlog.error(u"[__GetRecordIP:]API返回错误,错误码:%d,错误说明:%s" % (errCode, errMsg) )
+        raise DnspodApiError(errCode, errMsg)
     def errorInfo (self, errorCode ):
         if ( int(errorCode) == -1):
             return u"登陆失败"
@@ -181,6 +198,11 @@ class DnspodApi():
             return u"用户不在您名下 (仅用于代理接口)"
         else:
             return u"无说明" + errorCode
+    def getErrorMsg(self, lastJosnData):
+        """2014/4/16 增加服务器返回错误信息
+        """
+        return json.loads(lastJosnData,  encoding='utf-8').get('status').get("message")
+
     def __del__(self):
         pass
 
@@ -191,6 +213,9 @@ class MyDDns( ):
         self.ddns = DnspodApi(userEmail, userPasswd)
         try:
             self.RecIP = self.ddns.GetRecordIP(domain, subDomain)
+        #2014/4/16 对错误类增加定义和改正
+        except DnspodApiError as apierr: 
+            raise DnspodApiError(apierr.errCode, apierr.errMsg)
         except Exception as err:
             mlog.warn(u"获取记录地址失败")
             self.RecIP = ""
@@ -218,15 +243,23 @@ class MyDDns( ):
         mlog.info(u"主机当前IP地址是:[%s]" % self.curIP)
         return self.curIP
     def CheckIP(self):
-        if (self.RecIP == None) or (self.CurIP == None):
-            self.RecIP = self.ddns.GetRecordIP(domain, subDomain)
-            self.CurIP = self.GetMyPubIP()
-        if self.RecIP == self.curIP:
-            return "OK"
-        else:
-            ret = self.ddns.DdnsRecord( self.curIP, self.domain, self.subdomain )
-            return ret
+        try:
+            if self.RecIP == "":
+                self.RecIP = self.ddns.GetRecordIP(self.domain, self.subdomain) #20140416 fix bug add self.
+            if self.CurIP == "":
+                self.CurIP = self.GetMyPubIP()
+            if self.RecIP == self.curIP:
+                return "OK"
+            else:
+                ret = self.ddns.DdnsRecord( self.curIP, self.domain, self.subdomain )
+        except DnspodApiError as e:
+            raise DnspodApiError(e.errCode, e.errMsg)
+        except Exception as e:
+            mlog.error(e)
+        return "FALSE"
     def AddRecord(self):
+        """2014/4/12 增加添加接口
+        """
         if self.RecIP != "":
             self.CheckIP()
             return u"记录中已存在，无需重新添加,但已更新IP"
@@ -237,11 +270,15 @@ class MyDDns( ):
             return u"添加失败"
 
 def  main():
-    user=raw_input("Input user email")
-    passwd=raw_input("Input user's password")
-    domain=raw_input("Input your Top Domain")
-    subDom=raw_input("Input your sub Domain")
-    doObj = MyDDns(user, passwd, domain, subDom)
+    userNm=raw_input("Input user's email:")
+    passwd=raw_input("Input user's password:")
+    domain=raw_input("Input your Top Domain:")
+    subDom=raw_input("Input your sub Domain:")
+    try:
+        doObj = MyDDns(userNm, passwd, domain, subDom)
+    except DnspodApiError as e:
+        print u"调用失败，错误码:%d,错误信息:%s" % (e.errCode, e.errMsg)
+        return None
     print doObj.AddRecord()
 
 if __name__ == '__main__':
