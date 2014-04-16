@@ -269,7 +269,7 @@ class MyDDns( ):
         else:
             return u"添加失败"
 
-def  main():
+def  test():
     userNm=raw_input("Input user's email:")
     passwd=raw_input("Input user's password:")
     domain=raw_input("Input your Top Domain:")
@@ -282,4 +282,4 @@ def  main():
     print doObj.AddRecord()
 
 if __name__ == '__main__':
-    main()
+    test()
