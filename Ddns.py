@@ -3,6 +3,9 @@
 '''
 作者：张翼飞
 邮箱：yifie0727@gmail.com
+
+"""新增密码输入*替代，更新获取公网地址的网站"""
+最后修改时间：2014.05.14
 最后修改时间：2014.04.12
 最后修改时间：2014.01.20
 '''
@@ -237,7 +240,7 @@ class MyDDns( ):
     def GetMyPubIP(self):
         #URL = "http://v.kedyy.com/api/getip"
         #URL = "http://justurl.sinaapp.com/api/getip"
-        URL = "http://iframe.ip138.com/ic.asp"
+        URL = "http://20140507.ip138.com/ic.asp"#20140514原链接失效，无法获取ip。
         ct = rt.get( URL )
         self.curIP = ct.text.split('[')[1].split(']')[0]
         mlog.info(u"主机当前IP地址是:[%s]" % self.curIP)
@@ -268,10 +271,38 @@ class MyDDns( ):
             return u"成功添加记录"
         else:
             return u"添加失败"
+""" 新增密码隐藏为*号替代"""
+import getpass,sys
+_realgetpass = getpass.getpass
+def getpass_getpass(prompt='EnterPassword:', stream=None):
+    """this code from GoogleAppEngine  appcfg.py"""
+    try:
+        import msvcrt
+        password = ''
+        sys.stdout.write(prompt)
+        while 1:
+            ch = msvcrt.getch()
+            if ch == '\b':
+                if password:
+                    password = password[:-1]
+                    sys.stdout.write('\b \b')
+                else:
+                    continue
+            elif ch == '\r':
+                sys.stdout.write(os.linesep)
+                return password
+            else:
+                password += ch
+                sys.stdout.write('*')
+    except Exception, e:
+        return _realgetpass(prompt, stream)
+getpass.getpass = getpass_getpass
+
+
 
 def  test():
     userNm=raw_input("Input user's email:")
-    passwd=raw_input("Input user's password:")
+    passwd=getpass.getpass("Input user's password:")
     domain=raw_input("Input your Top Domain:")
     subDom=raw_input("Input your sub Domain:")
     try:
