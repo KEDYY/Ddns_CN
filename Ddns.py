@@ -272,7 +272,7 @@ class MyDDns( ):
         else:
             return u"添加失败"
 """ 新增密码隐藏为*号替代"""
-import getpass,sys
+import getpass,sys, os
 _realgetpass = getpass.getpass
 def getpass_getpass(prompt='EnterPassword:', stream=None):
     """this code from GoogleAppEngine  appcfg.py"""
@@ -311,6 +311,6 @@ def  test():
         print u"调用失败，错误码:%d,错误信息:%s" % (e.errCode, e.errMsg)
         return None
     print doObj.AddRecord()
-
+    raw_input("Press any key to continue....")
 if __name__ == '__main__':
     test()
