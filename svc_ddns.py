@@ -24,10 +24,15 @@ class DynamicDnsService(win32serviceutil.ServiceFramework):
     def SvcDoRun(self):
         # 等待服务被停止
         import Ddns
+        cn = 0
         while self.isAlive:
-            Ddns.service(None, None, token='_YOUR_TOKEN_ID_,_YOUR_TOKEN_VALUE_', domain='_YOUR_TOP_DOMAIN_',
-                         sub_domain='_YOU_SUB_DOMAIN_', log_file='_LOG_FILE_PATH_')
-            sleep(60)
+            if cn % 60 == 0:
+                Ddns.service(None, None, token='_YOUR_TOKEN_ID_,_YOUR_TOKEN_VALUE_', domain='_YOUR_TOP_DOMAIN_',
+                             sub_domain='_YOU_SUB_DOMAIN_', log_file='_LOG_FILE_PATH_')
+            else:
+                sleep(1)
+            cn += 1
+
         win32event.WaitForSingleObject(self.hWaitStop, win32event.INFINITE)
 
 
